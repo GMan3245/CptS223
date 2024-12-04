@@ -2,6 +2,7 @@
 #define LINEAR_PROBING_H
 
 #include <vector>
+#include <list>
 #include <algorithm>
 #include <functional>
 #include <string>
@@ -21,33 +22,73 @@ class ProbingHash
 
     bool contains( const HashedObj & x ) const
     {
-        // TODO: refer to Figure 5.16 in textbook for quadratic probing
-        return false;
+        return isActive(findPos(x));
     }
 
-    void makeEmpty( )
-    {
-        // TODO: refer to Figure 5.15 in textbook for quadratic probing
+    void makeEmpty() {
+        currentSize = 0;
+        for (auto& entry : array) {
+            entry.info = EMPTY;  // Mark each entry as EMPTY
+        }
     }
+
 
     bool insert( const HashedObj & x )
     {
-        // TODO: refer to Figure 5.17 in textbook for quadratic probing
-        return false;
+        int currentPos = findPos(x);
+
+        // if x is already in the table, do not insert it again
+        if (isActive(currentPos)) {
+            return false;
+        }
+
+        // insert x at the found position and mark it as active
+        array[currentPos].element = x;
+        array[currentPos].info = ACTIVE;
+        ++currentSize;  // Increment currentSize after insertion
+
+        // Check if we need to rehash (when load factor > 0.5)
+        if (currentSize > array.size() / 2) {
+            rehash();
+        }
+
+        return true;
     }
     
     bool insert( HashedObj && x )
     {
-        // TODO: refer to Figure 5.17 in textbook for quadratic probing
-        // this "insert" function accepts *Rvalues*
-        // so needs to use "move" (slightly different from the above one)
-        return false;
+        int currentPos = findPos(x);
+
+        // if x is already in the table, do not insert it again
+        if (isActive(currentPos)) {
+            return false;
+        }
+
+        // insert x at the found position using move semantics and mark it as active
+        array[currentPos].element = std::move(x);
+        array[currentPos].info = ACTIVE;
+        ++currentSize;  // Increment currentSize after insertion
+
+        // Check if we need to rehash (when load factor > 0.5)
+        if (currentSize > array.size() / 2) {
+            rehash();
+        }
+
+        return true;
     }
 
     bool remove( const HashedObj & x )
     {
-        // TODO: refer to Figure 5.17 in textbook for quadratic probing
-        return false;
+        int currentPos = findPos(x);
+        if(!isActive(currentPos)) {
+            return false;
+        }
+
+        //mark the entry as deleted and decrement the active element count
+        array[currentPos].info = DELETED;
+        --currentSize;
+
+        return true;
     }
 
     double readLoadFactor() 
@@ -86,29 +127,55 @@ class ProbingHash
     bool isActive( int currentPos ) const
       { return array[ currentPos ].info == ACTIVE; }
 
-    int findPos( const HashedObj & x ) const
-    {
-        // TODO: refer to Figure 5.16 in textbook for quadratic probing,
-        // we need a version of linear probing that finds the position with the linear probing resolution
-        return 0;
+    int findPos(const HashedObj& x) const {
+        int offset = 1;
+        int currentPos = myhash(x);
+
+        // Continue probing while the position is not empty and does not contain x
+        while (array[currentPos].info != EMPTY && array[currentPos].element != x) {
+            currentPos += offset;   // Compute the next probe position
+            offset += 2;            // Increment the offset for quadratic probing
+
+            // Wrap around the array if currentPos goes out of bounds
+            if (currentPos >= array.size()) {
+                currentPos -= array.size();
+            }
+        }
+        return currentPos;
     }
 
-    void rehash( )
-    {
-        // TODO: refer to Figure 5.22 in textbook for qudratic probing
+    void rehash() {
+        // Store the old array temporarily
+        vector<HashEntry> oldArray = array;
+
+        // Resize the array to the next prime size that is roughly double the current size
+        array.resize(nextPrime(2 * oldArray.size()));
+        for (auto& entry : array) {
+            entry.info = EMPTY;  // Mark each entry as EMPTY in the new array
+        }
+
+        // Reset currentSize to zero since we are going to reinsert elements
+        currentSize = 0;
+
+        // reinsert all active elements from the old array into the new array
+        for (auto& entry : oldArray) {
+            if (entry.info == ACTIVE) {
+                insert(std::move(entry.element));  //move the element, not the entire entry
+            }
+        }
     }
+
 
     size_t myhash( const HashedObj & x ) const
     {
-        static hash<HashedObj> hf;
+        static std::hash<HashedObj> hf;
         return hf( x ) % array.size( );
     }
 
 
     double loadFactor()
     {
-        // TODO: compute the load factor of hash table, defined on Page 198 of textbook
-        return 0.0;
+        return static_cast<double>(currentSize) / array.size();
     }
 };
 
