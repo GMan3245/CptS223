@@ -66,14 +66,12 @@ private:
     void computeAverageDepth(AVLNode *t, int depth, int &totalDepth, int &numNodes) const; // Computes average depth
     bool isBST(AVLNode *t, const Comparable & min, const Comparable & max) const; // Checks if the tree is a BST
     bool isBalanced(AVLNode *t) const;                  // Checks if the tree is balanced
-    int computeHeight(AVLNode *t) const {
-        return t == nullptr ? -1 : t->height;
-    }             // Computes the height of the tree
+    int computeHeight(AVLNode * t) const;              // Computes the height of the tree
     int readRootHeight(AVLNode * t) const;             // Returns the height of the root
 
     // Other functions
     double averageDepth(AVLNode *t, int depth, int &numNodes) const; // Calculates average depth
-    typename AVLTree<Comparable>::AVLNode *removeByRank(int rank, AVLNode * &t);
+    void removeByRank(int rank, AVLNode * & t);  
 };
 
 // constructor
@@ -268,10 +266,9 @@ void AVLTree<Comparable>::doubleWithRightChild(AVLNode * & k3) {
 }
 
 // computeHeight: Calculate and return the height of a node.
-
-template <typename Comparable>
-int AVLTree<Comparable>::computeHeight() const {
-    return computeHeight(root);
+template<typename Comparable>
+int AVLTree<Comparable>::computeHeight(AVLNode *t) const {
+    return t == NULL ? -1 : t->height;
 }
 
 // isBalanced: Check if the AVL tree is balanced.
@@ -340,50 +337,43 @@ void AVLTree<Comparable>::computeAverageDepth(AVLNode *t, int depth, int &totalD
     computeAverageDepth(t->right, depth + 1, totalDepth, numNodes);
 }
 
+template <typename Comparable>
+int AVLTree<Comparable>::computeHeight() const {
+    return computeHeight(root); // Call the private function with the root node
+}
+
 // removeByRank: Remove the node at a given rank.
+// Public removeByRank
 template <typename Comparable>
 void AVLTree<Comparable>::removeByRank(int rank) {
-    if (rank <= 0 || rank > treeSize()) {
-        cout << "Invalid rank" << endl;
-        return;
+    if (rank < 0 || rank >= treeSize()) {
+        throw out_of_range("Rank is out of range");
     }
-    root = removeByRank(rank, root);
+    removeByRank(rank, root);
 }
 
-// Private helper to remove the node by rank (recursive)
+// Private recursive removeByRank
 template <typename Comparable>
-typename AVLTree<Comparable>::AVLNode *AVLTree<Comparable>::removeByRank(int rank, AVLNode * &t) {
-    if (t == nullptr) {
-        return nullptr; // Rank out of range (shouldn't happen if check above is done)
+void AVLTree<Comparable>::removeByRank(int rank, AVLNode *&t) {
+    if (t == NULL) {
+        return; // not happen if rank is valid
     }
 
-    int leftSize = treeSize(t->left);  // Size of the left subtree
+    // Calculate the rank of the current node
+    int leftSubtreeSize = treeSize(t->left);
 
-    if (rank <= leftSize) {
-        // Rank is in the left subtree
-        return removeByRank(rank, t->left);
+    if (rank < leftSubtreeSize) {
+        // the left subtree
+        removeByRank(rank, t->left);
+    } else if (rank > leftSubtreeSize) {
+        // right subtree
+        removeByRank(rank - leftSubtreeSize - 1, t->right);
+    } else {
+        
+        remove(t->element, t); // Use the existing remove function
     }
-    else if (rank == leftSize + 1) {
-        // Rank is the current node (in-order traversal: k-th smallest)
-        AVLNode* nodeToDelete = t;
-        if (t->left == nullptr || t->right == nullptr) {
-            // One or no children
-            t = (t->left != nullptr) ? t->left : t->right;
-            delete nodeToDelete;
-        } else {
-            // Two children: replace with the in-order successor
-            AVLNode* minNode = findMin(t->right);
-            t->element = minNode->element; // Replace element with in-order successor
-            remove(minNode->element, t->right); // Remove successor
-        }
-        balance(t); // Rebalance the tree
-        return nullptr;
-    }
-    else {
-        // Rank is in the right subtree
-        rank -= leftSize + 1;  // Adjust rank to the right subtree's index
-        return removeByRank(rank, t->right);
-    }
+
+    // Balance the tree after removal
+    balance(t);
 }
-
 
